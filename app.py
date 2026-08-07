@@ -1,78 +1,40 @@
-from flask import Flask, request, jsonify
-import os
+from flask import Flask, request
 import nacl.signing
-import nacl.exceptions
+import requests
+import os
 
 app = Flask(__name__)
 
-PUBLIC_KEY = os.environ["DISCORD_PUBLIC_KEY"]
-
-
-def verify_signature(req):
-    signature = req.headers.get("X-Signature-Ed25519")
-    timestamp = req.headers.get("X-Signature-Timestamp")
-
-    if not signature or not timestamp:
-        return False
-
-    body = req.data.decode("utf-8")
-
-    verify_key = nacl.signing.VerifyKey(
-        bytes.fromhex(PUBLIC_KEY)
-    )
-
-    try:
-        verify_key.verify(
-            (timestamp + body).encode(),
-            bytes.fromhex(signature)
-        )
-        return True
-
-    except nacl.exceptions.BadSignatureError:
-        return False
-
+PUBLIC_KEY = "7c006fc3331bfd382594fe8c0e8af0cd2e5b7900ecf42137e5748300da0a8960"
 
 @app.route("/", methods=["POST"])
-def discord_interaction():
-
-    # Tjek at request kommer fra Discord
-    if not verify_signature(request):
-        return "Invalid request", 401
-
+def interactions():
     data = request.json
 
-    # Discord endpoint verification
+    # Discord ping test
     if data["type"] == 1:
-        return jsonify({
-            "type": 1
-        })
+        return {"type": 1}
 
     # Slash command
     if data["type"] == 2:
+        command = data["data"]["name"]
 
-        command_name = data["data"]["name"]
-
-        if command_name == "verynicecommand":
-            return jsonify({
+        if command == "verynicecommand":
+            return {
                 "type": 4,
                 "data": {
-                    "content": "@everyone @here hej:)",
+                    "content": "@everyone @here hej:)\n" * 20,
                     "allowed_mentions": {
                         "parse": ["everyone"]
                     }
                 }
-            })
+            }
 
-    return jsonify({})
+    return {}
 
-
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
-    return "Discord user app is running!"
-
+    return "Bot online"
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000))
-    )
+    app.run(host="0.0.0.0", port=10000)
