@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
+import os
 import nacl.signing
 import nacl.exceptions
-import os
 
 app = Flask(__name__)
 
@@ -9,8 +9,11 @@ PUBLIC_KEY = os.environ["DISCORD_PUBLIC_KEY"]
 
 
 def verify_signature(req):
-    signature = req.headers["X-Signature-Ed25519"]
-    timestamp = req.headers["X-Signature-Timestamp"]
+    signature = req.headers.get("X-Signature-Ed25519")
+    timestamp = req.headers.get("X-Signature-Timestamp")
+
+    if not signature or not timestamp:
+        return False
 
     body = req.data.decode("utf-8")
 
@@ -24,47 +27,52 @@ def verify_signature(req):
             bytes.fromhex(signature)
         )
         return True
+
     except nacl.exceptions.BadSignatureError:
         return False
 
 
 @app.route("/", methods=["POST"])
-def interactions():
+def discord_interaction():
 
+    # Tjek at request kommer fra Discord
     if not verify_signature(request):
         return "Invalid request", 401
 
     data = request.json
 
-    # Discord verification
+    # Discord endpoint verification
     if data["type"] == 1:
         return jsonify({
             "type": 1
         })
 
-
     # Slash command
     if data["type"] == 2:
 
-        if data["data"]["name"] == "verynicecommand":
+        command_name = data["data"]["name"]
 
+        if command_name == "verynicecommand":
             return jsonify({
                 "type": 4,
                 "data": {
-                    "content": "hej :)"
+                    "content": "@everyone @here hej:)",
+                    "allowed_mentions": {
+                        "parse": ["everyone"]
+                    }
                 }
             })
-
 
     return jsonify({})
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return "Discord app online"
+    return "Discord user app is running!"
 
 
-app.run(
-    host="0.0.0.0",
-    port=int(os.environ.get("PORT",5000))
-)
+if __name__ == "__main__":
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000))
+    )
